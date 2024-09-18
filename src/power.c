@@ -213,7 +213,9 @@ power_init(int cpuId)
                     }
                     break;
                 case ZEN4_RYZEN:
+                case ZEN4_RYZEN2:
                 case ZEN4_EPYC:
+                case ZEN4_RYZEN_PRO:
                     cpuid_info.turbo = 0;
                     power_info.hasRAPL = 1;
                     power_info.statusRegWidth = 64;
@@ -236,7 +238,11 @@ power_init(int cpuId)
             break;
     }
 
-    perfmon_init_maps();
+    err = perfmon_init_maps();
+    if (err != 0)
+    {
+        return err;
+    }
     if (!HPMinitialized())
     {
         HPMinit();
@@ -501,7 +507,7 @@ power_init(int cpuId)
             }
         }
 
-        if (cpuid_info.family == ZEN3_FAMILY && (cpuid_info.model == ZEN4_RYZEN || cpuid_info.model == ZEN4_EPYC))
+        if (cpuid_info.family == ZEN3_FAMILY && (cpuid_info.model == ZEN4_RYZEN || cpuid_info.model == ZEN4_RYZEN2 || cpuid_info.model == ZEN4_EPYC))
         {
             err = HPMread(cpuId, MSR_DEV, MSR_AMD19_RAPL_L3_UNIT, &flags);
             if (err == 0)

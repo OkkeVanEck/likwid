@@ -193,7 +193,7 @@ int perfmon_init_perfevent(int cpu_id)
         active_cpus += 1;
     }
     perf_event_num_cpus = cpuid_topology.numHWThreads;
-    if (cpuid_info.family == ZEN3_FAMILY && (cpuid_info.model == ZEN4_RYZEN || cpuid_info.model == ZEN4_EPYC))
+    if (cpuid_info.family == ZEN3_FAMILY && (cpuid_info.model == ZEN4_RYZEN || cpuid_info.model == ZEN4_RYZEN2 || cpuid_info.model == ZEN4_RYZEN_PRO || cpuid_info.model == ZEN4_EPYC ))
     {
         perfEventOptionNames[EVENT_OPTION_TID] = "threadmask";
         perfEventOptionNames[EVENT_OPTION_CID] = "coreid";
@@ -901,7 +901,8 @@ int perf_uncore_setup(struct perf_event_attr *attr, RegisterType type, PerfmonEv
             }
         }
     }
-    if (type != POWER && cpuid_info.family == ZEN3_FAMILY && (cpuid_info.model == ZEN4_RYZEN || cpuid_info.model == ZEN4_EPYC))
+
+    if (type != POWER && cpuid_info.family == ZEN3_FAMILY && (cpuid_info.model == ZEN4_RYZEN || cpuid_info.model == ZEN4_RYZEN2 || cpuid_info.model == ZEN4_RYZEN_PRO || cpuid_info.model == ZEN4_EPYC))
     {
         int got_cid = 0;
         int got_slices = 0;
@@ -1037,11 +1038,12 @@ int perfmon_setupCountersThread_perfevent(
 #if defined(__ARM_ARCH_8A)
                 if (cpuid_info.vendor == FUJITSU_ARM && cpuid_info.part == FUJITSU_A64FX)
                 {
-                    if (event->eventId == 0x3E8 ||
-                        event->eventId == 0x3E0 ||
-                        event->eventId == 0x308 ||
-                        event->eventId == 0x309 ||
-                        (event->eventId >= 0x314 &&  event->eventId <= 0x31E))
+                    if (event->eventId == 0x308 || event->eventId == 0x309 ||
+                        (event->eventId >= 0x314 && event->eventId <= 0x316) ||
+                        (event->eventId >= 0x318 && event->eventId <= 0x31E) ||
+                        event->eventId == 0x330 || event->eventId == 0x350 ||
+                        event->eventId == 0x370 || event->eventId == 0x396 ||
+                        event->eventId == 0x3E0 || event->eventId == 0x3E8)
                     {
                         if (numa_lock[affinity_thread2numa_lookup[cpu_id]] != cpu_id)
                         {
@@ -1115,6 +1117,7 @@ int perfmon_setupCountersThread_perfevent(
                 is_uncore = 1;
                 break;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
+            case UNCORE:
             case MBOX0:
             case MBOX1:
             case MBOX2:
@@ -1123,6 +1126,14 @@ int perfmon_setupCountersThread_perfevent(
             case MBOX5:
             case MBOX6:
             case MBOX7:
+            case MBOX8:
+            case MBOX9:
+            case MBOX10:
+            case MBOX11:
+            case MBOX12:
+            case MBOX13:
+            case MBOX14:
+            case MBOX15:
             case CBOX0:
             case CBOX1:
             case CBOX2:
@@ -1392,6 +1403,11 @@ int perfmon_setupCountersThread_perfevent(
                         has_lock = 1;
                     }
                 }
+                if ((cpuid_info.family == ARMV8_FAMILY) && (cpuid_info.part == NVIDIA_GRACE) && cpuid_topology.numSockets > 1)
+                {
+                    DEBUG_PRINT(DEBUGLEV_DEVELOP, Updating uncore type for socket %d on Nvidia Grace, affinity_thread2socket_lookup[cpu_id]);
+                    type += affinity_thread2socket_lookup[cpu_id];
+                }
                 if (has_lock)
                 {
                     ret = perf_uncore_setup(&attr, type, event);
@@ -1516,14 +1532,20 @@ int perfmon_stopCountersThread_perfevent(int thread_id, PerfmonEventSet* eventSe
                 if (cpuid_info.vendor == FUJITSU_ARM && cpuid_info.part == FUJITSU_A64FX)
                 {
                     switch (eventSet->events[i].event.eventId) {
-                        case 0x3E8:
-                            tmp *= 256;
+                        case 0x1e0:
+                            if (cpuid_topology.numCoresPerSocket == 24)
+                                tmp *= 9;
+                            else
+                                tmp *= 8;
                             break;
                         case 0x3E0:
                             if (cpuid_topology.numCoresPerSocket == 24)
                                 tmp *= 36;
                             else
                                 tmp *= 32;
+                            break;
+                        case 0x3E8:
+                            tmp *= 256;
                             break;
                         default:
                             break;
@@ -1567,14 +1589,20 @@ int perfmon_readCountersThread_perfevent(int thread_id, PerfmonEventSet* eventSe
                 if (cpuid_info.vendor == FUJITSU_ARM && cpuid_info.part == FUJITSU_A64FX)
                 {
                     switch (eventSet->events[i].event.eventId) {
-                        case 0x3E8:
-                            tmp *= 256;
+                        case 0x1e0:
+                            if (cpuid_topology.numCoresPerSocket == 24)
+                                tmp *= 9;
+                            else
+                                tmp *= 8;
                             break;
                         case 0x3E0:
                             if (cpuid_topology.numCoresPerSocket == 24)
                                 tmp *= 36;
                             else
                                 tmp *= 32;
+                            break;
+                        case 0x3E8:
+                            tmp *= 256;
                             break;
                         default:
                             break;

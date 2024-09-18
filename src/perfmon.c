@@ -88,6 +88,7 @@
 #include <perfmon_applem1.h>
 #include <perfmon_hisilicon.h>
 #include <perfmon_graviton3.h>
+#include <perfmon_nvidiagrace.h>
 
 #ifdef LIKWID_USE_PERFEVENT
 #include <perfmon_perfevent.h>
@@ -875,7 +876,16 @@ perfmon_init_maps(void)
 {
     int err = 0;
     if (eventHash != NULL && counter_map != NULL && box_map != NULL && perfmon_numCounters > 0 && perfmon_numArchEvents > 0)
-        return -EINVAL;
+    {
+        // Already initialized
+        return 0;
+    }
+#if defined(__x86_64__) || defined(__i386__) || defined(_ARCH_PPC)
+    DEBUG_PRINT(DEBUGLEV_DEVELOP, Initialize maps for family 0x%X model 0x%X stepping 0x%X, cpuid_info.family, cpuid_info.model, cpuid_info.stepping);
+#endif
+#if defined(__ARM_ARCH_8A) || defined(__ARM_ARCH_7A__)
+    DEBUG_PRINT(DEBUGLEV_DEVELOP, Initialize maps for family 0x%X vendor 0x%X part 0x%X, cpuid_info.family, cpuid_info.family, cpuid_info.model);
+#endif
     switch ( cpuid_info.family )
     {
         case P6_FAMILY:
@@ -974,7 +984,7 @@ perfmon_init_maps(void)
                     counter_map = nehalem_counter_map;
                     perfmon_numCounters = perfmon_numCountersNehalem;
                     box_map = nehalem_box_map;
-                    translate_types = default_translate_types;
+                    translate_types = nehalem_translate_types;
                     break;
 
                 case NEHALEM_WESTMERE_M:
@@ -984,7 +994,7 @@ perfmon_init_maps(void)
                     counter_map = nehalem_counter_map;
                     perfmon_numCounters = perfmon_numCountersNehalem;
                     box_map = nehalem_box_map;
-                    translate_types = default_translate_types;
+                    translate_types = nehalem_translate_types;
                     break;
 
                 case IVYBRIDGE_EP:
@@ -1288,7 +1298,9 @@ perfmon_init_maps(void)
                     translate_types = zen3_translate_types;
                     break;
                 case ZEN4_RYZEN:
+                case ZEN4_RYZEN2:
                 case ZEN4_EPYC:
+                case ZEN4_RYZEN_PRO:
                     eventHash = zen4_arch_events;
                     perfmon_numArchEvents = perfmon_numArchEventsZen4;
                     counter_map = zen4_counter_map;
@@ -1402,12 +1414,17 @@ perfmon_init_maps(void)
                             translate_types = a53_translate_types;
                             break;
                         case ARM_NEOVERSE_N1:
+                        case ARM_CORTEX_A76:
                             eventHash = neon1_arch_events;
                             perfmon_numArchEvents = perfmon_numArchEventsNeoN1;
                             counter_map = neon1_counter_map;
                             box_map = neon1_box_map;
                             perfmon_numCounters = perfmon_numCountersNeoN1;
                             translate_types = neon1_translate_types;
+                            if (access(translate_types[PMC], F_OK) != 0)
+                            {
+                                translate_types = a76_translate_types;
+                            }
                             break;
                         case AWS_GRAVITON3:
                             eventHash = graviton3_arch_events;
@@ -1416,6 +1433,14 @@ perfmon_init_maps(void)
                             box_map = graviton3_box_map;
                             perfmon_numCounters = perfmon_numCountersGraviton3;
                             translate_types = graviton3_translate_types;
+                            break;
+                        case NVIDIA_GRACE:
+                            eventHash = nvidiagrace_arch_events;
+                            perfmon_numArchEvents = perfmon_numArchEventsNvidiaGrace;
+                            counter_map = nvidiagrace_counter_map;
+                            box_map = nvidiagrace_box_map;
+                            perfmon_numCounters = perfmon_numCountersNvidiaGrace;
+                            translate_types = nvidiagrace_translate_types;
                             break;
                         default:
                             ERROR_PLAIN_PRINT(Unsupported ARMv8 Processor);
@@ -1491,8 +1516,8 @@ perfmon_init_maps(void)
                             break;
                     }
                     break;
-		            case APPLE_M1:
-		            case APPLE:
+                case APPLE_M1:
+                case APPLE:
                     switch (cpuid_info.model)
                     {
                          case APPLE_M1_STUDIO:
@@ -1584,6 +1609,7 @@ perfmon_init_maps(void)
                 eventHash[perfmon_numArchEvents].limit[ret] = '\0';
             }
             bdestroy(blim);
+            bstrListDestroy(outlist);
             eventHash[perfmon_numArchEvents].optionMask = EVENT_OPTION_GENERIC_CONFIG_MASK|EVENT_OPTION_GENERIC_UMASK_MASK;
             eventHash[perfmon_numArchEvents].numberOfOptions = 2;
             eventHash[perfmon_numArchEvents].options[0].type = EVENT_OPTION_GENERIC_CONFIG;
@@ -1950,7 +1976,9 @@ perfmon_init_funcs(int* init_power, int* init_temp)
                     perfmon_finalizeCountersThread = perfmon_finalizeCountersThread_zen3;
                     break;
                 case ZEN4_RYZEN:
+                case ZEN4_RYZEN2:
                 case ZEN4_EPYC:
+                case ZEN4_RYZEN_PRO:
                     initThreadArch = perfmon_init_zen4;
                     initialize_power = TRUE;
                     perfmon_startCountersThread = perfmon_startCountersThread_zen4;
@@ -2109,7 +2137,16 @@ perfmon_init(int nrThreads, const int* threadsToCpu)
     if (ret < 0)
     {
         ERROR_PRINT(Failed to initialize event and counter lists for %s, cpuid_info.name);
+        free(groupSet->threads);
+        free(groupSet);
+        groupSet = NULL;
+        for(i=0; i<cpuid_topology.numHWThreads; i++)
+            free(currentConfig[i]);
+        free(currentConfig);
+        currentConfig = NULL;
+#ifndef LIKWID_USE_PERFEVENT
         HPMfinalize();
+#endif
         return ret;
     }
 
@@ -2118,7 +2155,16 @@ perfmon_init(int nrThreads, const int* threadsToCpu)
     if (ret < 0)
     {
         ERROR_PRINT(Failed to initialize event and counter lists for %s, cpuid_info.name);
+        free(groupSet->threads);
+        free(groupSet);
+        groupSet = NULL;
+        for(i=0; i<cpuid_topology.numHWThreads; i++)
+            free(currentConfig[i]);
+        free(currentConfig);
+        currentConfig = NULL;
+#ifndef LIKWID_USE_PERFEVENT
         HPMfinalize();
+#endif
         return ret;
     }
 

@@ -83,6 +83,7 @@ OBJ := $(filter-out $(BUILD_DIR)/access_x86.o,$(OBJ))
 OBJ := $(filter-out $(BUILD_DIR)/access_x86_msr.o,$(OBJ))
 OBJ := $(filter-out $(BUILD_DIR)/access_x86_pci.o,$(OBJ))
 OBJ := $(filter-out $(BUILD_DIR)/access_x86_rdpmc.o,$(OBJ))
+OBJ := $(filter-out $(BUILD_DIR)/access_x86_mmio.o,$(OBJ))
 OBJ := $(filter-out $(BUILD_DIR)/access_x86_clientmem.o,$(OBJ))
 OBJ := $(filter-out $(BUILD_DIR)/access_x86_translate.o,$(OBJ))
 else
@@ -95,6 +96,20 @@ OBJ := $(filter-out $(BUILD_DIR)/access_x86.o,$(OBJ))
 OBJ := $(filter-out $(BUILD_DIR)/access_x86_msr.o,$(OBJ))
 OBJ := $(filter-out $(BUILD_DIR)/access_x86_pci.o,$(OBJ))
 OBJ := $(filter-out $(BUILD_DIR)/access_x86_rdpmc.o,$(OBJ))
+OBJ := $(filter-out $(BUILD_DIR)/access_x86_mmio.o,$(OBJ))
+OBJ := $(filter-out $(BUILD_DIR)/access_x86_clientmem.o,$(OBJ))
+OBJ := $(filter-out $(BUILD_DIR)/access_x86_translate.o,$(OBJ))
+else
+OBJ := $(filter-out $(BUILD_DIR)/loadDataARM.o,$(OBJ))
+endif
+ifeq ($(COMPILER), GCCARM)
+OBJ := $(filter-out $(BUILD_DIR)/topology_cpuid.o,$(OBJ))
+OBJ := $(filter-out $(BUILD_DIR)/loadData.o,$(OBJ))
+OBJ := $(filter-out $(BUILD_DIR)/access_x86.o,$(OBJ))
+OBJ := $(filter-out $(BUILD_DIR)/access_x86_msr.o,$(OBJ))
+OBJ := $(filter-out $(BUILD_DIR)/access_x86_pci.o,$(OBJ))
+OBJ := $(filter-out $(BUILD_DIR)/access_x86_rdpmc.o,$(OBJ))
+OBJ := $(filter-out $(BUILD_DIR)/access_x86_mmio.o,$(OBJ))
 OBJ := $(filter-out $(BUILD_DIR)/access_x86_clientmem.o,$(OBJ))
 OBJ := $(filter-out $(BUILD_DIR)/access_x86_translate.o,$(OBJ))
 else
@@ -107,6 +122,7 @@ OBJ := $(filter-out $(BUILD_DIR)/access_x86.o,$(OBJ))
 OBJ := $(filter-out $(BUILD_DIR)/access_x86_msr.o,$(OBJ))
 OBJ := $(filter-out $(BUILD_DIR)/access_x86_pci.o,$(OBJ))
 OBJ := $(filter-out $(BUILD_DIR)/access_x86_rdpmc.o,$(OBJ))
+OBJ := $(filter-out $(BUILD_DIR)/access_x86_mmio.o,$(OBJ))
 OBJ := $(filter-out $(BUILD_DIR)/access_x86_clientmem.o,$(OBJ))
 OBJ := $(filter-out $(BUILD_DIR)/access_x86_translate.o,$(OBJ))
 else
@@ -142,6 +158,7 @@ OBJ := $(filter-out $(BUILD_DIR)/access_x86_msr.o,$(OBJ))
 OBJ := $(filter-out $(BUILD_DIR)/access_x86_pci.o,$(OBJ))
 OBJ := $(filter-out $(BUILD_DIR)/access_x86_clientmem.o,$(OBJ))
 OBJ := $(filter-out $(BUILD_DIR)/access_x86_rdpmc.o,$(OBJ))
+OBJ := $(filter-out $(BUILD_DIR)/access_x86_mmio.o,$(OBJ))
 OBJ := $(filter-out $(BUILD_DIR)/access_x86_translate.o,$(OBJ))
 OBJ := $(filter-out $(BUILD_DIR)/loadData.o,$(OBJ))
 endif
@@ -152,6 +169,7 @@ OBJ := $(filter-out $(BUILD_DIR)/access_x86_msr.o,$(OBJ))
 OBJ := $(filter-out $(BUILD_DIR)/access_x86_pci.o,$(OBJ))
 OBJ := $(filter-out $(BUILD_DIR)/access_x86_clientmem.o,$(OBJ))
 OBJ := $(filter-out $(BUILD_DIR)/access_x86_rdpmc.o,$(OBJ))
+OBJ := $(filter-out $(BUILD_DIR)/access_x86_mmio.o,$(OBJ))
 OBJ := $(filter-out $(BUILD_DIR)/access_x86_translate.o,$(OBJ))
 OBJ := $(filter-out $(BUILD_DIR)/loadData.o,$(OBJ))
 endif
@@ -193,7 +211,11 @@ else
 ifeq ($(BUILDFREQ),false)
 all: $(BUILD_DIR) $(PERFMONHEADERS) $(OBJ) $(TARGET_LIB) $(FORTRAN_IF)  $(PINLIB) $(L_APPS) $(L_HELPER) $(DAEMON_TARGET) $(BENCH_TARGET) $(APPDAEMON_TARGET)
 else
+ifeq ($(CONTAINER_HELPER),false)
 all: $(BUILD_DIR) $(PERFMONHEADERS) $(OBJ) $(TARGET_LIB) $(FORTRAN_IF)  $(PINLIB) $(L_APPS) $(L_HELPER) $(DAEMON_TARGET) $(FREQ_TARGET) $(BENCH_TARGET) $(APPDAEMON_TARGET)
+else
+all: $(BUILD_DIR) $(PERFMONHEADERS) $(OBJ) $(TARGET_LIB) $(FORTRAN_IF)  $(PINLIB) $(L_APPS) $(L_HELPER) $(DAEMON_TARGET) $(FREQ_TARGET) $(BENCH_TARGET) $(APPDAEMON_TARGET) $(CONTAINER_HELPER_TARGET)
+endif
 endif
 endif
 
@@ -205,62 +227,62 @@ docs:
 	@echo "===>  GENERATE DOXYGEN DOCS"
 	@cp doc/lua-doxygen.md doc/lua-doxygen.md.safe
 	@cp doc/likwid-doxygen.md doc/likwid-doxygen.md.safe
-	@sed -i -e s+'<PREFIX>'+$(PREFIX)+g -e s+'<VERSION>'+$(VERSION)+g -e s+'<DATE>'+'$(DATE)'+g -e s+'<RELEASE>'+$(RELEASE)+g -e s+'<MINOR>'+$(MINOR)+g -e s+'<GITCOMMIT>'+$(GITCOMMIT)+g doc/lua-doxygen.md
-	@sed -i -e s+'<PREFIX>'+$(PREFIX)+g -e s+'<VERSION>'+$(VERSION)+g -e s+'<DATE>'+'$(DATE)'+g -e s+'<RELEASE>'+$(RELEASE)+g -e s+'<MINOR>'+$(MINOR)+g -e s+'<GITCOMMIT>'+$(GITCOMMIT)+g doc/likwid-doxygen.md
+	@sed -i -e s#'<PREFIX>'#$(PREFIX)#g -e s#'<VERSION>'#$(VERSION)#g -e s#'<DATE>'#'$(DATE)'#g -e s#'<RELEASE>'#$(RELEASE)#g -e s#'<MINOR>'#$(MINOR)#g -e s#'<GITCOMMIT>'#$(GITCOMMIT)#g doc/lua-doxygen.md
+	@sed -i -e s#'<PREFIX>'#$(PREFIX)#g -e s#'<VERSION>'#$(VERSION)#g -e s#'<DATE>'#'$(DATE)'#g -e s#'<RELEASE>'#$(RELEASE)#g -e s#'<MINOR>'#$(MINOR)#g -e s#'<GITCOMMIT>'#$(GITCOMMIT)#g doc/likwid-doxygen.md
 	$(Q)doxygen doc/Doxyfile
 	@mv doc/lua-doxygen.md.safe doc/lua-doxygen.md
 	@mv doc/likwid-doxygen.md.safe doc/likwid-doxygen.md
 
 $(L_APPS):  $(addprefix $(SRC_DIR)/applications/,$(addsuffix  .lua,$(L_APPS)))
 	@echo "===>  ADJUSTING  $@"
-	@if [ "$(ACCESSMODE)" = "direct" ]; then sed -i -e s/"access_mode = 1"/"access_mode = 0"/g $(SRC_DIR)/applications/$@.lua;fi
-	@sed -e s/'<INSTALLED_BINPREFIX>'/$(subst /,\\/,$(INSTALLED_BINPREFIX))/g \
-		-e s/'<INSTALLED_LIBPREFIX>'/$(subst /,\\/,$(INSTALLED_LIBPREFIX))/g \
-		-e s/'<INSTALLED_PREFIX>'/$(subst /,\\/,$(INSTALLED_PREFIX))/g \
-		-e s/'<VERSION>'/$(VERSION).$(RELEASE).$(MINOR)/g \
-		-e s/'<DATE>'/$(DATE)/g \
-		-e s/'<RELEASE>'/$(RELEASE)/g \
-		-e s/'<MINOR>'/$(MINOR)/g \
-		-e s/'<GITCOMMIT>'/$(GITCOMMIT)/g \
+	@if [ "$(ACCESSMODE)" = "direct" ]; then sed -i -e s#"access_mode = 1"#"access_mode = 0"#g $(SRC_DIR)/applications/$@.lua;fi
+	@sed -e s#'<INSTALLED_BINPREFIX>'#$(subst /,\\/,$(INSTALLED_BINPREFIX))#g \
+		-e s#'<INSTALLED_LIBPREFIX>'#$(subst /,\\/,$(INSTALLED_LIBPREFIX))#g \
+		-e s#'<INSTALLED_PREFIX>'#$(subst /,\\/,$(INSTALLED_PREFIX))#g \
+		-e s#'<VERSION>'#$(VERSION).$(RELEASE).$(MINOR)#g \
+		-e s#'<DATE>'#$(DATE)#g \
+		-e s#'<RELEASE>'#$(RELEASE)#g \
+		-e s#'<MINOR>'#$(MINOR)#g \
+		-e s#'<GITCOMMIT>'#$(GITCOMMIT)#g \
 		$(addprefix $(SRC_DIR)/applications/,$(addsuffix  .lua,$@)) > $@
 	@if [ "$(LUA_INTERNAL)" = "false" ]; then \
-		sed -i -e s+"$(subst /,\\/,$(INSTALLED_BINPREFIX))/likwid-lua"+"$(LUA_BIN)/$(LUA_LIB_NAME)"+ $@; \
+		sed -i -e s#"$(subst /,\\/,$(INSTALLED_BINPREFIX))/likwid-lua"#"$(LUA_BIN)/$(LUA_LIB_NAME)"# $@; \
 	fi
-	@if [ "$(ACCESSMODE)" = "direct" ]; then sed -i -e s/"access_mode = 0"/"access_mode = 1"/g $(SRC_DIR)/applications/$@.lua;fi
+	@if [ "$(ACCESSMODE)" = "direct" ]; then sed -i -e s#"access_mode = 0"#"access_mode = 1"#g $(SRC_DIR)/applications/$@.lua;fi
 
 $(L_HELPER):
 	@echo "===>  ADJUSTING  $@"
-	@sed -e s/'<PREFIX>'/$(subst /,\\/,$(PREFIX))/g \
-		-e s/'<INSTALLED_LIBPREFIX>'/$(subst /,\\/,$(INSTALLED_LIBPREFIX))/g \
-		-e s/'<INSTALLED_PREFIX>'/$(subst /,\\/,$(INSTALLED_PREFIX))/g \
-		-e s/'<LIKWIDGROUPPATH>'/$(subst /,\\/,$(LIKWIDGROUPPATH))/g \
-		-e s/'<LIBLIKWIDPIN>'/$(subst /,\\/,$(LIBLIKWIDPIN))/g \
-		-e s/'<VERSION>'/$(VERSION)/g \
-		-e s/'<RELEASE>'/$(RELEASE)/g \
-		-e s/'<MINOR>'/$(MINOR)/g \
-		-e s/'<GITCOMMIT>'/$(GITCOMMIT)/g \
+	@sed -e s#'<PREFIX>'#$(subst /,\\/,$(PREFIX))#g \
+		-e s#'<INSTALLED_LIBPREFIX>'#$(subst /,\\/,$(INSTALLED_LIBPREFIX))#g \
+		-e s#'<INSTALLED_PREFIX>'#$(subst /,\\/,$(INSTALLED_PREFIX))#g \
+		-e s#'<LIKWIDGROUPPATH>'#$(subst /,\\/,$(LIKWIDGROUPPATH))#g \
+		-e s#'<LIBLIKWIDPIN>'#$(subst /,\\/,$(LIBLIKWIDPIN))#g \
+		-e s#'<VERSION>'#$(VERSION)#g \
+		-e s#'<RELEASE>'#$(RELEASE)#g \
+		-e s#'<MINOR>'#$(MINOR)#g \
+		-e s#'<GITCOMMIT>'#$(GITCOMMIT)#g \
 		$(SRC_DIR)/applications/$@ > $@
 
 $(STATIC_TARGET_LIB): $(BUILD_DIR) $(PERFMONHEADERS) $(OBJ) $(TARGET_HWLOC_LIB) $(TARGET_LUA_LIB)
 	@echo "===>  CREATE STATIC LIB  $(TARGET_LIB)"
 	$(Q)${AR} -crs $(STATIC_TARGET_LIB) $(OBJ) $(TARGET_HWLOC_LIB) $(TARGET_LUA_LIB)
-	@sed -e s+'@PREFIX@'+$(INSTALLED_PREFIX)+g \
-		-e s+'@NVIDIA_INTERFACE@'+$(NVIDIA_INTERFACE)+g \
-		-e s+'@FORTRAN_INTERFACE@'+$(FORTRAN_INTERFACE)+g \
-		-e s+'@LIBPREFIX@'+$(INSTALLED_LIBPREFIX)+g \
-		-e s+'@BINPREFIX@'+$(INSTALLED_BINPREFIX)+g \
+	@sed -e s#'@PREFIX@'#$(INSTALLED_PREFIX)#g \
+		-e s#'@NVIDIA_INTERFACE@'#$(NVIDIA_INTERFACE)#g \
+		-e s#'@FORTRAN_INTERFACE@'#$(FORTRAN_INTERFACE)#g \
+		-e s#'@LIBPREFIX@'#$(INSTALLED_LIBPREFIX)#g \
+		-e s#'@BINPREFIX@'#$(INSTALLED_BINPREFIX)#g \
 		make/likwid-config.cmake > likwid-config.cmake
 
 $(DYNAMIC_TARGET_LIB): $(BUILD_DIR) $(PERFMONHEADERS) $(OBJ) $(TARGET_HWLOC_LIB) $(TARGET_LUA_LIB)
 	@echo "===>  CREATE SHARED LIB  $(TARGET_LIB)"
 	$(Q)${CC} $(DEBUG_FLAGS) $(SHARED_LFLAGS) -Wl,-soname,$(TARGET_LIB).$(VERSION).$(RELEASE) $(SHARED_CFLAGS) -o $(DYNAMIC_TARGET_LIB) $(OBJ) $(LIBS) $(TARGET_HWLOC_LIB) $(TARGET_LUA_LIB) $(RPATHS)
 	@ln -sf $(TARGET_LIB) $(TARGET_LIB).$(VERSION).$(RELEASE)
-	@sed -e s+'@PREFIX@'+$(INSTALLED_PREFIX)+g \
-		-e s+'@NVIDIA_INTERFACE@'+$(NVIDIA_INTERFACE)+g \
-		-e s+'@ROCM_INTERFACE@'+$(ROCM_INTERFACE)+g \
-		-e s+'@FORTRAN_INTERFACE@'+$(FORTRAN_INTERFACE)+g \
-		-e s+'@LIBPREFIX@'+$(INSTALLED_LIBPREFIX)+g \
-		-e s+'@BINPREFIX@'+$(INSTALLED_BINPREFIX)+g \
+	@sed -e s#'@PREFIX@'#$(INSTALLED_PREFIX)#g \
+		-e s#'@NVIDIA_INTERFACE@'#$(NVIDIA_INTERFACE)#g \
+		-e s#'@ROCM_INTERFACE@'#$(ROCM_INTERFACE)#g \
+		-e s#'@FORTRAN_INTERFACE@'#$(FORTRAN_INTERFACE)#g \
+		-e s#'@LIBPREFIX@'#$(INSTALLED_LIBPREFIX)#g \
+		-e s#'@BINPREFIX@'#$(INSTALLED_BINPREFIX)#g \
 		make/likwid-config.cmake > likwid-config.cmake
 
 $(DAEMON_TARGET): $(SRC_DIR)/access-daemon/accessDaemon.c
@@ -274,6 +296,10 @@ $(FREQ_TARGET): $(SRC_DIR)/access-daemon/setFreqDaemon.c
 $(APPDAEMON_TARGET): $(SRC_DIR)/access-daemon/appDaemon.c $(TARGET_GOTCHA_LIB)
 	@echo "===>  BUILD application interface likwid-appDaemon.so"
 	$(Q)$(MAKE) -C  $(SRC_DIR)/access-daemon likwid-appDaemon.so
+
+$(CONTAINER_HELPER_TARGET): $(SRC_DIR)/bridge/bridge.c
+	@echo "===>  BUILD container helper likwid-bridge"
+	$(Q)$(CC) $(DEBUG_FLAGS) $(CFLAGS) $(ANSI_CFLAGS) $(CPPFLAGS) $(SRC_DIR)/bridge/bridge.c -o $@
 
 $(BUILD_DIR):
 	@mkdir $(BUILD_DIR)
@@ -357,7 +383,7 @@ endif
 
 clean: $(TARGET_LUA_LIB) $(TARGET_HWLOC_LIB) $(TARGET_GOTCHA_LIB) $(BENCH_TARGET)
 	@echo "===>  CLEAN"
-	@for APP in $(L_APPS); do \
+	@for APP in $(L_APPS) likwid-sysfeatures; do \
 		rm -f $$APP; \
 	done
 	@rm -f likwid.lua
@@ -365,12 +391,12 @@ clean: $(TARGET_LUA_LIB) $(TARGET_HWLOC_LIB) $(TARGET_GOTCHA_LIB) $(BENCH_TARGET
 	@rm -f $(DYNAMIC_TARGET_LIB)*
 	@rm -f $(PINLIB)*
 	@rm -f $(FORTRAN_IF_NAME)
-	@rm -f $(FREQ_TARGET) $(DAEMON_TARGET) $(APPDAEMON_TARGET)
+	@rm -f $(FREQ_TARGET) $(DAEMON_TARGET) $(APPDAEMON_TARGET) $(CONTAINER_HELPER_TARGET)
 	@rm -f likwid-config.cmake
 
 distclean: $(TARGET_LUA_LIB) $(TARGET_HWLOC_LIB) $(TARGET_GOTCHA_LIB) $(BENCH_TARGET)
 	@echo "===>  DIST CLEAN"
-	@for APP in $(L_APPS); do \
+	@for APP in $(L_APPS) likwid-sysfeatures; do \
 		rm -f $$APP; \
 	done
 	@rm -f likwid.lua
@@ -378,7 +404,7 @@ distclean: $(TARGET_LUA_LIB) $(TARGET_HWLOC_LIB) $(TARGET_GOTCHA_LIB) $(BENCH_TA
 	@rm -f $(DYNAMIC_TARGET_LIB)*
 	@rm -f $(PINLIB)*
 	@rm -f $(FORTRAN_IF_NAME)
-	@rm -f $(FREQ_TARGET) $(DAEMON_TARGET) $(APPDAEMON_TARGET)
+	@rm -f $(FREQ_TARGET) $(DAEMON_TARGET) $(APPDAEMON_TARGET) $(CONTAINER_HELPER_TARGET)
 	@rm -rf $(BUILD_DIR)
 	@if [ "$(LUA_INTERNAL)" = "true" ]; then rm -f $(TARGET_LUA_LIB).* $(shell basename $(TARGET_LUA_LIB)).*; fi
 	@if [ "$(USE_INTERNAL_HWLOC)" = "true" ]; then rm -f $(TARGET_HWLOC_LIB).* $(shell basename $(TARGET_HWLOC_LIB)).*; fi
@@ -488,7 +514,33 @@ uninstall_appdaemon_moved:
 	@echo "===> No UNINSTALL of the application interface appDaemon"
 endif
 
-install: install_daemon install_freq install_appdaemon
+ifeq ($(CONTAINER_HELPER),true)
+install_container_helper: $(CONTAINER_HELPER_TARGET)
+	@echo "===> INSTALL container helper likwid-bridge to $(SBINPREFIX)/likwid-bridge"
+	@mkdir -p $(SBINPREFIX)
+	@install -m 755 $(CONTAINER_HELPER_TARGET) $(SBINPREFIX)/likwid-bridge
+move_container_helper:
+	@echo "===> MOVE container helper likwid-bridge from $(SBINPREFIX)/likwid-bridge to $(INSTALLED_SBINPREFIX)/likwid-bridge"
+	@mkdir -p $(INSTALLED_SBINPREFIX)
+	@install -m 755 $(SBINPREFIX)/$(CONTAINER_HELPER_TARGET) $(INSTALLED_SBINPREFIX)/$(CONTAINER_HELPER_TARGET)
+uninstall_container_helper:
+	@echo "===> REMOVING container helper likwid-bridge from $(SBINPREFIX)/$(CONTAINER_HELPER_TARGET)"
+	@rm -f $(SBINPREFIX)/$(CONTAINER_HELPER_TARGET)
+uninstall_container_helper_moved:
+	@echo "===> REMOVING container helper likwid-bridge from $(INSTALLED_SBINPREFIX)/$(CONTAINER_HELPER_TARGET)"
+	@rm -f $(INSTALLED_SBINPREFIX)/$(CONTAINER_HELPER_TARGET)
+else
+install_container_helper:
+	@echo "===> No INSTALL of the container helper likwid-bridge"
+move_container_helper:
+	@echo "===> No MOVE of the container helper likwid-bridge"
+uninstall_container_helper:
+	@echo "===> No UNINSTALL of the container helper likwid-bridge"
+uninstall_container_helper_moved:
+	@echo "===> No UNINSTALL of the container helper likwid-bridge"
+endif
+
+install: install_daemon install_freq install_appdaemon install_container_helper
 	@echo "===> INSTALL applications to $(BINPREFIX)"
 	@mkdir -p $(BINPREFIX)
 	@chmod 755 $(BINPREFIX)
@@ -538,27 +590,27 @@ install: install_daemon install_freq install_appdaemon
 	@echo "===> INSTALL man pages to $(MANPREFIX)/man1"
 	@mkdir -p $(MANPREFIX)/man1
 	@chmod 755 $(MANPREFIX)/man1
-	@sed -e "s/<VERSION>/$(VERSION)/g" -e "s/<DATE>/$(DATE)/g" -e "s/<GITCOMMIT>/$(GITCOMMIT)/g" -e "s/<MINOR>/$(MINOR)/g" < $(DOC_DIR)/likwid-topology.1 > $(MANPREFIX)/man1/likwid-topology.1
-	@sed -e "s/<VERSION>/$(VERSION)/g" -e "s/<DATE>/$(DATE)/g" -e "s/<GITCOMMIT>/$(GITCOMMIT)/g" -e "s/<MINOR>/$(MINOR)/g" -e "s+<PREFIX>+$(PREFIX)+g" < $(DOC_DIR)/likwid-perfctr.1 > $(MANPREFIX)/man1/likwid-perfctr.1
-	@sed -e "s/<VERSION>/$(VERSION)/g" -e "s/<DATE>/$(DATE)/g" -e "s/<GITCOMMIT>/$(GITCOMMIT)/g" -e "s/<MINOR>/$(MINOR)/g" < $(DOC_DIR)/likwid-powermeter.1 > $(MANPREFIX)/man1/likwid-powermeter.1
-	@sed -e "s/<VERSION>/$(VERSION)/g" -e "s/<DATE>/$(DATE)/g" -e "s/<GITCOMMIT>/$(GITCOMMIT)/g" -e "s/<MINOR>/$(MINOR)/g" < $(DOC_DIR)/likwid-pin.1 > $(MANPREFIX)/man1/likwid-pin.1
-	@sed -e "s/<VERSION>/$(VERSION)/g" -e "s/<DATE>/$(DATE)/g" -e "s/<GITCOMMIT>/$(GITCOMMIT)/g" -e "s/<MINOR>/$(MINOR)/g" < $(DOC_DIR)/feedGnuplot.1 > $(MANPREFIX)/man1/feedGnuplot.1
-	@sed -e "s/<VERSION>/$(VERSION)/g" -e "s/<DATE>/$(DATE)/g" -e "s/<GITCOMMIT>/$(GITCOMMIT)/g" -e "s/<MINOR>/$(MINOR)/g" < $(DOC_DIR)/likwid-accessD.1 > $(MANPREFIX)/man1/likwid-accessD.1
-	@sed -e "s/<VERSION>/$(VERSION)/g" -e "s/<DATE>/$(DATE)/g" -e "s/<GITCOMMIT>/$(GITCOMMIT)/g" -e "s/<MINOR>/$(MINOR)/g" < $(DOC_DIR)/likwid-genTopoCfg.1 > $(MANPREFIX)/man1/likwid-genTopoCfg.1
-	@sed -e "s/<VERSION>/$(VERSION)/g" -e "s/<DATE>/$(DATE)/g" -e "s/<GITCOMMIT>/$(GITCOMMIT)/g" -e "s/<MINOR>/$(MINOR)/g" < $(DOC_DIR)/likwid-memsweeper.1 > $(MANPREFIX)/man1/likwid-memsweeper.1
-	@sed -e "s/<VERSION>/$(VERSION)/g" -e "s/<DATE>/$(DATE)/g" -e "s/<GITCOMMIT>/$(GITCOMMIT)/g" -e "s/<MINOR>/$(MINOR)/g" < $(DOC_DIR)/likwid-mpirun.1 > $(MANPREFIX)/man1/likwid-mpirun.1
-	@sed -e "s/<VERSION>/$(VERSION)/g" -e "s/<DATE>/$(DATE)/g" -e "s/<GITCOMMIT>/$(GITCOMMIT)/g" -e "s/<MINOR>/$(MINOR)/g" < $(DOC_DIR)/likwid-perfscope.1 > $(MANPREFIX)/man1/likwid-perfscope.1
-	@sed -e "s/<VERSION>/$(VERSION)/g" -e "s/<DATE>/$(DATE)/g" -e "s/<GITCOMMIT>/$(GITCOMMIT)/g" -e "s/<MINOR>/$(MINOR)/g" < $(DOC_DIR)/likwid-setFreq.1 > $(MANPREFIX)/man1/likwid-setFreq.1
-	@sed -e "s/<VERSION>/$(VERSION)/g" -e "s/<DATE>/$(DATE)/g" -e "s/<GITCOMMIT>/$(GITCOMMIT)/g" -e "s/<MINOR>/$(MINOR)/g" < $(DOC_DIR)/likwid-features.1 > $(MANPREFIX)/man1/likwid-features.1
-	@sed -e "s/<VERSION>/$(VERSION)/g" -e "s/<DATE>/$(DATE)/g" -e "s/<GITCOMMIT>/$(GITCOMMIT)/g" -e "s/<MINOR>/$(MINOR)/g" < $(DOC_DIR)/likwid-bench.1 > $(MANPREFIX)/man1/likwid-bench.1
-	@sed -e "s/<VERSION>/$(VERSION)/g" -e "s/<DATE>/$(DATE)/g" -e "s/<GITCOMMIT>/$(GITCOMMIT)/g" -e "s/<MINOR>/$(MINOR)/g" < $(DOC_DIR)/likwid-setFrequencies.1 > $(MANPREFIX)/man1/likwid-setFrequencies.1
-	@sed -e "s/.TH LUA/.TH LIKWID-LUA/g" -e "s/lua - Lua interpreter/likwid-lua - Lua interpreter included in LIKWID/g" -e "s/.B lua/.B likwid-lua/g" -e "s/.BR luac (1)//g" $(DOC_DIR)/likwid-lua.1 > $(MANPREFIX)/man1/likwid-lua.1
+	@sed -e "s#<VERSION>#$(VERSION)#g" -e "s#<DATE>#$(DATE)#g" -e "s#<GITCOMMIT>#$(GITCOMMIT)#g" -e "s#<MINOR>#$(MINOR)#g" < $(DOC_DIR)/likwid-topology.1 > $(MANPREFIX)/man1/likwid-topology.1
+	@sed -e "s#<VERSION>#$(VERSION)#g" -e "s#<DATE>#$(DATE)#g" -e "s#<GITCOMMIT>#$(GITCOMMIT)#g" -e "s#<MINOR>#$(MINOR)#g" -e "s#<PREFIX>#$(PREFIX)#g" < $(DOC_DIR)/likwid-perfctr.1 > $(MANPREFIX)/man1/likwid-perfctr.1
+	@sed -e "s#<VERSION>#$(VERSION)#g" -e "s#<DATE>#$(DATE)#g" -e "s#<GITCOMMIT>#$(GITCOMMIT)#g" -e "s#<MINOR>#$(MINOR)#g" < $(DOC_DIR)/likwid-powermeter.1 > $(MANPREFIX)/man1/likwid-powermeter.1
+	@sed -e "s#<VERSION>#$(VERSION)#g" -e "s#<DATE>#$(DATE)#g" -e "s#<GITCOMMIT>#$(GITCOMMIT)#g" -e "s#<MINOR>#$(MINOR)#g" < $(DOC_DIR)/likwid-pin.1 > $(MANPREFIX)/man1/likwid-pin.1
+	@sed -e "s#<VERSION>#$(VERSION)#g" -e "s#<DATE>#$(DATE)#g" -e "s#<GITCOMMIT>#$(GITCOMMIT)#g" -e "s#<MINOR>#$(MINOR)#g" < $(DOC_DIR)/feedGnuplot.1 > $(MANPREFIX)/man1/feedGnuplot.1
+	@sed -e "s#<VERSION>#$(VERSION)#g" -e "s#<DATE>#$(DATE)#g" -e "s#<GITCOMMIT>#$(GITCOMMIT)#g" -e "s#<MINOR>#$(MINOR)#g" < $(DOC_DIR)/likwid-accessD.1 > $(MANPREFIX)/man1/likwid-accessD.1
+	@sed -e "s#<VERSION>#$(VERSION)#g" -e "s#<DATE>#$(DATE)#g" -e "s#<GITCOMMIT>#$(GITCOMMIT)#g" -e "s#<MINOR>#$(MINOR)#g" < $(DOC_DIR)/likwid-genTopoCfg.1 > $(MANPREFIX)/man1/likwid-genTopoCfg.1
+	@sed -e "s#<VERSION>#$(VERSION)#g" -e "s#<DATE>#$(DATE)#g" -e "s#<GITCOMMIT>#$(GITCOMMIT)#g" -e "s#<MINOR>#$(MINOR)#g" < $(DOC_DIR)/likwid-memsweeper.1 > $(MANPREFIX)/man1/likwid-memsweeper.1
+	@sed -e "s#<VERSION>#$(VERSION)#g" -e "s#<DATE>#$(DATE)#g" -e "s#<GITCOMMIT>#$(GITCOMMIT)#g" -e "s#<MINOR>#$(MINOR)#g" < $(DOC_DIR)/likwid-mpirun.1 > $(MANPREFIX)/man1/likwid-mpirun.1
+	@sed -e "s#<VERSION>#$(VERSION)#g" -e "s#<DATE>#$(DATE)#g" -e "s#<GITCOMMIT>#$(GITCOMMIT)#g" -e "s#<MINOR>#$(MINOR)#g" < $(DOC_DIR)/likwid-perfscope.1 > $(MANPREFIX)/man1/likwid-perfscope.1
+	@sed -e "s#<VERSION>#$(VERSION)#g" -e "s#<DATE>#$(DATE)#g" -e "s#<GITCOMMIT>#$(GITCOMMIT)#g" -e "s#<MINOR>#$(MINOR)#g" < $(DOC_DIR)/likwid-setFreq.1 > $(MANPREFIX)/man1/likwid-setFreq.1
+	@sed -e "s#<VERSION>#$(VERSION)#g" -e "s#<DATE>#$(DATE)#g" -e "s#<GITCOMMIT>#$(GITCOMMIT)#g" -e "s#<MINOR>#$(MINOR)#g" < $(DOC_DIR)/likwid-features.1 > $(MANPREFIX)/man1/likwid-features.1
+	@sed -e "s#<VERSION>#$(VERSION)#g" -e "s#<DATE>#$(DATE)#g" -e "s#<GITCOMMIT>#$(GITCOMMIT)#g" -e "s#<MINOR>#$(MINOR)#g" < $(DOC_DIR)/likwid-bench.1 > $(MANPREFIX)/man1/likwid-bench.1
+	@sed -e "s#<VERSION>#$(VERSION)#g" -e "s#<DATE>#$(DATE)#g" -e "s#<GITCOMMIT>#$(GITCOMMIT)#g" -e "s#<MINOR>#$(MINOR)#g" < $(DOC_DIR)/likwid-setFrequencies.1 > $(MANPREFIX)/man1/likwid-setFrequencies.1
+	@sed -e "s#.TH LUA#.TH LIKWID-LUA#g" -e "s#lua - Lua interpreter#likwid-lua - Lua interpreter included in LIKWID#g" -e "s#.B lua#.B likwid-lua#g" -e "s#.BR luac (1)##g" $(DOC_DIR)/likwid-lua.1 > $(MANPREFIX)/man1/likwid-lua.1
 	@chmod 644 $(MANPREFIX)/man1/likwid-*
 	@echo "===> INSTALL headers to $(PREFIX)/include"
 	@mkdir -p $(PREFIX)/include
 	@chmod 755 $(PREFIX)/include
 	@install -m 644 $(SRC_DIR)/includes/likwid.h  $(PREFIX)/include/
-	@sed -i -e "s/<VERSION>/$(VERSION)/g" -e "s/<DATE>/$(DATE)/g" -e "s/<GITCOMMIT>/$(GITCOMMIT)/g" -e "s/<MINOR>/$(MINOR)/g" $(PREFIX)/include/likwid.h
+	@sed -i -e "s#<VERSION>#$(VERSION)#g" -e "s#<DATE>#$(DATE)#g" -e "s#<GITCOMMIT>#$(GITCOMMIT)#g" -e "s#<MINOR>#$(MINOR)#g" $(PREFIX)/include/likwid.h
 	@install -m 644 $(SRC_DIR)/includes/likwid-marker.h  $(PREFIX)/include/
 	@install -m 644 $(SRC_DIR)/includes/bstrlib.h  $(PREFIX)/include/
 	$(FORTRAN_INSTALL)
@@ -585,7 +637,7 @@ install: install_daemon install_freq install_appdaemon
 	@echo "===> INSTALL cmake to $(abspath $(PREFIX)/share/likwid)"
 	@install -m 644 $(PWD)/likwid-config.cmake $(PREFIX)/share/likwid
 
-move: move_daemon move_freq move_appdaemon
+move: move_daemon move_freq move_appdaemon move_container_helper
 	@echo "===> MOVE applications from $(BINPREFIX) to $(INSTALLED_BINPREFIX)"
 	@mkdir -p $(INSTALLED_BINPREFIX)
 	@chmod 755 $(INSTALLED_BINPREFIX)
@@ -652,11 +704,11 @@ move: move_daemon move_freq move_appdaemon
 	@echo "===> MOVE cmake from $(abspath $(PREFIX)/share/likwid) to $(INSTALLED_PREFIX)/share/likwid"
 	@mkdir -p $(INSTALLED_PREFIX)/share/likwid
 	@chmod 755 $(INSTALLED_PREFIX)/share/likwid
-	@sed -e s+'\(# @MOVE_LIKWID_INSTALL@\)'+"set(_DEFAULT_PREFIXES $(INSTALLED_PREFIX) $(INSTALLED_LIBPREFIX) $(INSTALLED_BINPREFIX))\n\1"+g \
+	@sed -e s#'\(# @MOVE_LIKWID_INSTALL@\)'#"set(_DEFAULT_PREFIXES $(INSTALLED_PREFIX) $(INSTALLED_LIBPREFIX) $(INSTALLED_BINPREFIX))\n\1"#g \
 		$(PREFIX)/share/likwid/likwid-config.cmake > $(INSTALLED_PREFIX)/share/likwid/likwid-config.cmake
 	@chmod 644 $(INSTALLED_PREFIX)/share/likwid/likwid-config.cmake
 
-uninstall: uninstall_daemon uninstall_freq uninstall_appdaemon
+uninstall: uninstall_daemon uninstall_freq uninstall_appdaemon uninstall_container_helper
 	@echo "===> REMOVING applications from $(PREFIX)/bin"
 	@rm -f $(addprefix $(BINPREFIX)/,$(addsuffix  .lua,$(L_APPS)))
 	@for APP in $(L_APPS); do \
@@ -693,7 +745,7 @@ uninstall: uninstall_daemon uninstall_freq uninstall_appdaemon
 	@rm -rf $(PREFIX)/share/likwid/likwid-config.cmake
 	@rm -rf $(PREFIX)/share/likwid
 
-uninstall_moved: uninstall_daemon_moved uninstall_freq_moved uninstall_appdaemon_moved
+uninstall_moved: uninstall_daemon_moved uninstall_freq_moved uninstall_appdaemon_moved uninstall_container_helper_moved
 	@echo "===> REMOVING applications from $(INSTALLED_PREFIX)/bin"
 	@rm -f $(addprefix $(INSTALLED_BINPREFIX)/,$(addsuffix  .lua,$(L_APPS)))
 	@for APP in $(L_APPS); do \
@@ -734,10 +786,10 @@ local: $(L_APPS) likwid.lua
 	@echo "===> Setting Lua scripts to run from current directory"
 	@PWD=$(shell pwd)
 	@for APP in $(L_APPS); do \
-		sed -i -e "s/<VERSION>/$(VERSION)/g" -e "s/<DATE>/$(DATE)/g" -e "s/<RELEASE>/$(RELEASE)/g" -e "s/<GITCOMMIT>/$(GITCOMMIT)/g" -e "s/<MINOR>/$(MINOR)/g" -e "s+$(PREFIX)/bin/likwid-lua+$(PWD)/ext/lua/lua+" -e "s+$(PREFIX)/share/lua/?.lua+$(PWD)/?.lua+" -e "s+$(PREFIX)/bin/likwid-pin+$(PWD)/likwid-pin+" -e "s+$(PREFIX)/bin/likwid-perfctr+$(PWD)/likwid-perfctr+" -e "s+$(PREFIX)/lib+$(PWD)+" $$APP; \
+		sed -i -e "s#<VERSION>/#$(VERSION)#g" -e "s#<DATE>#$(DATE)#g" -e "s#<RELEASE>#$(RELEASE)#g" -e "s#<GITCOMMIT>#$(GITCOMMIT)#g" -e "s#<MINOR>#$(MINOR)#g" -e "s#$(PREFIX)/bin/likwid-lua#$(PWD)/ext/lua/lua#" -e "s#$(PREFIX)/share/lua/?.lua#$(PWD)/?.lua#" -e "s#$(PREFIX)/bin/likwid-pin#$(PWD)/likwid-pin#" -e "s#$(PREFIX)/bin/likwid-perfctr#$(PWD)/likwid-perfctr#" -e "s#$(PREFIX)/lib#$(PWD)#" $$APP; \
 		chmod +x $$APP; \
 	done
-	@sed -i -e "s/<VERSION>/$(VERSION)/g" -e "s/<DATE>/$(DATE)/g" -e "s/<RELEASE>/$(RELEASE)/g" -e "s+$(PREFIX)/lib+$(PWD)+g" -e "s+$(PREFIX)/share/likwid/perfgroups+$(PWD)/groups+g" -e "s/<GITCOMMIT>/$(GITCOMMIT)/g" -e "s/<MINOR>/$(MINOR)/g" likwid.lua;
+	@sed -i -e "s#<VERSION>#$(VERSION)#g" -e "s#<DATE>#$(DATE)#g" -e "s#<RELEASE>#$(RELEASE)#g" -e "s#$(PREFIX)/lib#$(PWD)#g" -e "s#$(PREFIX)/share/likwid/perfgroups#$(PWD)/groups#g" -e "s#<GITCOMMIT>#$(GITCOMMIT)#g" -e "s#<MINOR>#$(MINOR)#g" likwid.lua;
 	@ln -sf liblikwid.so liblikwid.so.$(VERSION)
 	@ln -sf liblikwid.so liblikwid.so.$(VERSION).$(RELEASE)
 	@ln -sf $(HWLOC_FOLDER)/liblikwid-hwloc.so liblikwid-hwloc.so.$(VERSION)
@@ -800,7 +852,7 @@ RPM: packaging/rpm/likwid.spec
 	@COMMITISH="HEAD"
 	@VERS=$$(git describe --tags --abbrev=0 $${COMMITISH})
 	@VERS=$${VERS#v}
-	@VERS=$$(echo $$VERS | sed -e s+'-'+'_'+g)
+	@VERS=$$(echo $$VERS | sed -e s#'-'#'_'#g)
 	@if [ "$${VERS}" = "" ]; then VERS="$(VERSION).$(RELEASE).$(MINOR)"; fi
 	@eval $$(rpmspec --query --queryformat "NAME='%{name}' VERSION='%{version}' RELEASE='%{release}' NVR='%{NVR}' NVRA='%{NVRA}'" --define="VERS $${VERS}" "$${SPECFILE}")
 	@PREFIX="$${NAME}-$${VERSION}"
@@ -832,16 +884,16 @@ DEB: packaging/deb/likwid.deb.control
 	@COMMITISH="HEAD"
 	@VERS=$$(git describe --tags --abbrev=0 $${COMMITISH})
 	@VERS=$${VERS#v}
-	@VERS=$$(echo $$VERS | sed -e s+'-'+'_'+g)
+	@VERS=$$(echo $$VERS | sed -e s#'-'#'_'#g)
 	@ARCH=$$(uname -m)
-	@ARCH=$$(echo $$ARCH | sed -e s+'_'+'-'+g)
+	@ARCH=$$(echo $$ARCH | sed -e s#'_'#'-'#g)
 	@if [ "$${ARCH}" = "x86-64" ]; then ARCH=amd64; fi
 	@if [ "$${VERS}" = "" ]; then VERS="$(VERSION).$(RELEASE).$(MINOR)"; fi
 	@PREFIX="$${NAME}-$${VERSION}_$${ARCH}"
-	@SIZE_BYTES=$$(du -bcs --exclude=.dpkgbuild "$$WORKSPACE"/ | awk '{print $$1}' | head -1 | sed -e 's/^0\+//')
+	@SIZE_BYTES=$$(du -bcs --exclude=.dpkgbuild "$$WORKSPACE"/ | awk '{print $$1}' | head -1 | sed -e 's#^0\+##')
 	@SIZE="$$(awk -v size="$$SIZE_BYTES" 'BEGIN {print (size/1024)+1}' | awk '{print int($$0)}')"
-	#@sed -e s+"{VERSION}"+"$$VERS"+g -e s+"{INSTALLED_SIZE}"+"$$SIZE"+g -e s+"{ARCH}"+"$$ARCH"+g $$CONTROLFILE > $${DEBIANDIR}/control
-	@sed -e s+"{VERSION}"+"$$VERS"+g -e s+"{INSTALLED_SIZE}"+"$$SIZE"+g -e s+"{ARCH}"+"$$ARCH"+g $$CONTROLFILE > $${DEBIANBINDIR}/control
+	#@sed -e s#"{VERSION}"#"$$VERS"#g -e s#"{INSTALLED_SIZE}"#"$$SIZE"#g -e s#"{ARCH}"#"$$ARCH"#g $$CONTROLFILE > $${DEBIANDIR}/control
+	@sed -e s#"{VERSION}"#"$$VERS"#g -e s#"{INSTALLED_SIZE}"#"$$SIZE"#g -e s#"{ARCH}"#"$$ARCH"#g $$CONTROLFILE > $${DEBIANBINDIR}/control
 	@sudo make PREFIX=$$WORKSPACE INSTALLED_PREFIX=$(PREFIX) install
 	@DEB_FILE="likwid_$${VERS}_$${ARCH}.deb"
 	@dpkg-deb -b $${WORKSPACE} "$$DEB_FILE"

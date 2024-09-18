@@ -925,6 +925,8 @@ end
 if print_info or verbose > 0 then
     print_stdout(string.format("CPU family:\t%u", cpuinfo["family"]))
     print_stdout(string.format("CPU model:\t%u", cpuinfo["model"]))
+    print_stdout(string.format("CPU vendor:\t%u", cpuinfo["vendor"]))
+    print_stdout(string.format("CPU part:\t%u", cpuinfo["part"]))
     print_stdout(string.format("CPU short:\t%s", cpuinfo["short_name"]))
     print_stdout(string.format("CPU stepping:\t%u", cpuinfo["stepping"]))
     print_stdout(string.format("CPU features:\t%s", cpuinfo["features"]))
@@ -936,7 +938,9 @@ if print_info or verbose > 0 then
         print_stdout(string.format("PERFMON number of counters:\t\t%u", cpuinfo["perf_num_ctr"]))
         print_stdout(string.format("PERFMON width of counters:\t\t%u", cpuinfo["perf_width_ctr"]))
         print_stdout(string.format("PERFMON number of fixed counters:\t%u", cpuinfo["perf_num_fixed_ctr"]))
+        print_stdout(string.format("PERFMON supports desktop memory controllers:\t%u", cpuinfo["supportClientmem"]))
     end
+    print_stdout(string.format("PERFMON supports Uncore:\t%u", cpuinfo["supportUncore"]))
     ---------------------------
     if nvSupported and cudatopo then
         print_stdout(likwid.hline)
@@ -1088,10 +1092,13 @@ if use_marker == true then
     likwid.setenv("LIKWID_FORCE", "-1")
     likwid.setenv("KMP_INIT_AT_FORK", "FALSE")
     if nvSupported and #gpulist_cuda > 0 and #cuda_event_string_list > 0 then
-        likwid.setenv("LIKWID_GPUS", table.concat(gpulist_cuda, ","))
+        likwid.setenv("LIKWID_NVMON_GPUS", table.concat(gpulist_cuda, ","))
         str = table.concat(cuda_event_string_list, "|")
-        likwid.setenv("LIKWID_GEVENTS", str)
-        likwid.setenv("LIKWID_GPUFILEPATH", nvMarkerFile)
+        likwid.setenv("LIKWID_NVMON_EVENTS", str)
+        likwid.setenv("LIKWID_NVMON_FILEPATH", nvMarkerFile)
+        if verbose > 0 then
+            likwid.setenv("LIKWID_NVMON_VERBOSITY", tostring(verbose))
+        end
     end
     if rocmSupported and #gpulist_rocm > 0 and #rocm_event_string_list > 0 then
         likwid.setenv("LIKWID_ROCMON_GPUS", table.concat(gpulist_rocm, ","))
@@ -1430,7 +1437,18 @@ if use_wrapper or use_timeline then
             end
             break
         end
-        local remain = likwid.sleep(math.floor(duration - (twork * 1E6)))
+	exitvalue, exited = likwid.checkProgram(pid)
+        if exited then
+            io.stdout:flush()
+            if #execList > 0 then
+                break
+            end
+        end
+        local sleeptime = duration - (twork * 1E6)
+	local remain = 0
+        if sleeptime > 0 then
+           remain = likwid.sleep(math.floor(duration - (twork * 1E6)))
+        end
 
         exitvalue, exited = likwid.checkProgram(pid)
         if exited then

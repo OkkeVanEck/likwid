@@ -8,9 +8,13 @@
 # configuration options setup steps.
 # Supported: GCC, CLANG, ICC, MIC (ICC), GCCX86 (for 32bit systems)
 # GCCARMv8, GCCARMv7 and GCCPOWER
+# Since 5.3, there is a generic GCCARM target
 COMPILER = GCC#NO SPACE
 
-# Path were to install likwid
+# Absolute path where to install likwid. If you need just an intermediate
+# install location, e.g. for packaging, use PREFIX for the intermediate
+# location and INSTALLED_PREFIX for the final location. You can use
+# 'make move' to copy it from PREFIX to INSTALLED_PREFIX.
 PREFIX ?= /usr/local#NO SPACE
 
 # Set the default mode for MSR access.
@@ -36,6 +40,9 @@ ROCM_INTERFACE = false#NO SPACE
 
 # Build experimental sysfeatures interface and Lua CLI application
 BUILD_SYSFEATURES = false#NO SPACE
+
+# Build container helper
+CONTAINER_HELPER = false#NO SPACE
 
 #################################################################
 #################################################################
@@ -86,6 +93,10 @@ INSTALLED_FREQDAEMON = $(INSTALLED_SBINPREFIX)/likwid-setFreq#NO SPACE
 BUILDAPPDAEMON=true
 APPDAEMON = $(PREFIX)/lib/likwid-appDaemon.so#NO SPACE
 INSTALLED_APPDAEMON = $(INSTALLED_PREFIX)/lib/likwid-appDaemon.so#NO SPACE
+
+# Build the container helper.
+TMP_CONTAINER_HELPER = $(PREFIX)/sbin/likwid-bridge
+INSTALLED_CONTAINER_HELPER = $(INSTALLED_PREFIX)/sbin/likwid-bridge
 
 # chown installed tools to this user/group
 # if you change anything here, make sure that the user/group can access

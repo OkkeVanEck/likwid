@@ -180,7 +180,7 @@ static int readCacheInclusiveAMD(int level)
 
 /* #####   FUNCTION DEFINITIONS  -  EXPORTED FUNCTIONS   ################## */
 
-void
+int
 proc_init_cpuInfo(cpu_set_t cpuSet)
 {
     int i = 0;
@@ -335,11 +335,11 @@ proc_init_cpuInfo(cpu_set_t cpuSet)
                             cpuid_info.isIntel,
                             cpuid_topology.numHWThreads)
     }
-    return;
+    return 0;
 }
 
 
-void
+int
 proc_init_cpuFeatures(void)
 {
     int ret = 0;
@@ -349,13 +349,17 @@ proc_init_cpuFeatures(void)
     char delimiter[] = " ";
     char* cptr;
 #ifdef _ARCH_PPC
-    return;
+    return 0;
 #endif
     struct tagbstring flagString = bsStatic ("flags");
     struct tagbstring featString = bsStatic ("Features");
     bstring flagline = bfromcstr("");
 
     bstring cpuinfo = read_file("/proc/cpuinfo");
+    if (blength(cpuinfo) == 0)
+    {
+        return -EFAULT;
+    }
     struct bstrList* cpulines = bsplit(cpuinfo, '\n');
     bdestroy(cpuinfo);
     for (int i = 0; i < cpulines->qty; i++)
@@ -566,7 +570,7 @@ proc_init_cpuFeatures(void)
             setBit(cpuid_info.featureFlags, PMULL);
             bcatcstr(bfeatures, "PMULL ");
         }
-        else if (bisstemeqblk(flaglist->entry[i], "sve", 3) == 1)
+        else if (bisstemeqblk(flaglist->entry[i], "sve", 3) == 1 && (!testBit(cpuid_info.featureFlags, SVE)))
         {
             setBit(cpuid_info.featureFlags, SVE);
             bcatcstr(bfeatures, "SVE ");
@@ -580,6 +584,12 @@ proc_init_cpuFeatures(void)
     }
 
     cpuid_info.features = (char*) malloc((blength(bfeatures)+2)*sizeof(char));
+    if (!cpuid_info.features)
+    {
+        bdestroy(bfeatures);
+        bstrListDestroy(flaglist);
+        return -ENOMEM;
+    }
     ret = snprintf(cpuid_info.features, blength(bfeatures)+1, "%s", bdata(bfeatures));
     if (ret > 0)
     {
@@ -589,10 +599,10 @@ proc_init_cpuFeatures(void)
     bstrListDestroy(flaglist);
 
     get_cpu_perf_data();
-    return;
+    return 0;
 }
 
-void
+int
 proc_init_nodeTopology(cpu_set_t cpuSet)
 {
     HWThread* hwThreadPool;
@@ -602,6 +612,7 @@ proc_init_nodeTopology(cpu_set_t cpuSet)
     int (*ownatoi)(const char*);
     ownatoi = &atoi;
     int last_socket = -1;
+    int last_coreid = -1;
     int num_sockets = 0;
     int num_cores_per_socket = 0;
     int num_threads_per_core = 0;
@@ -631,6 +642,7 @@ proc_init_nodeTopology(cpu_set_t cpuSet)
             {
                 num_sockets++;
                 last_socket = packageId;
+                last_coreid = -1;
             }
             fclose(fp);
         }
@@ -639,7 +651,7 @@ proc_init_nodeTopology(cpu_set_t cpuSet)
         if (NULL != (fp = fopen (bdata(file), "r")))
         {
             bstring src = bread ((bNread) fread, fp);
-            hwThreadPool[i].coreId = ownatoi(bdata(src));
+            hwThreadPool[i].coreId = (++last_coreid);
             if (hwThreadPool[i].packageId == 0)
             {
                 num_cores_per_socket++;
@@ -716,7 +728,7 @@ proc_init_nodeTopology(cpu_set_t cpuSet)
     int* helper = malloc(cpuid_topology.numHWThreads * sizeof(int));
     if (!helper)
     {
-        return;
+        return -ENOMEM;
     }
     cpuid_topology.threadPool = hwThreadPool;
     int hidx = 0;
@@ -856,7 +868,7 @@ proc_init_nodeTopology(cpu_set_t cpuSet)
     cpuid_topology.numCoresPerSocket = num_threads_per_socket/num_threads_per_core;
     cpuid_topology.numThreadsPerCore = num_threads_per_core;
     free(helper);
-    return;
+    return 0;
 }
 
 void proc_split_llc_check(CacheLevel* llc_cache)
@@ -912,7 +924,7 @@ void proc_split_llc_check(CacheLevel* llc_cache)
 }
 
 
-void
+int
 proc_init_cacheTopology(void)
 {
     FILE *fp;
@@ -947,6 +959,11 @@ proc_init_cacheTopology(void)
     }
 
     cachePool = (CacheLevel*) malloc(nrCaches * sizeof(CacheLevel));
+    if (!cachePool)
+    {
+        bdestroy(cpudir);
+        return -ENOMEM;
+    }
     for (int i=0;i<nrCaches;i++)
     {
         levelStr = bformat("%s/index%d/level",bdata(cpudir),i);
@@ -1090,5 +1107,5 @@ proc_init_cacheTopology(void)
     bdestroy(cpudir);
     cpuid_topology.numCacheLevels = nrCaches;
     cpuid_topology.cacheLevels = cachePool;
-    return;
+    return 0;
 }

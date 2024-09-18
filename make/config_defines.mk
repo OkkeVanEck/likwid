@@ -178,6 +178,34 @@ ifeq ($(strip $(COMPILER)),GCCARMv8)
         BUILDFREQ := false
     endif
 endif
+ifeq ($(strip $(COMPILER)),GCCARM)
+    ifeq ($(strip $(ACCESSMODE)),sysdaemon)
+        $(info Info: Compiling for ARM architecture. Changing accessmode to perf_event.)
+        ACCESSMODE := perf_event
+        DEFINES += -DLIKWID_USE_PERFEVENT
+        BUILDDAEMON := false
+        BUILDFREQ := false
+    endif
+    ifeq ($(strip $(ACCESSMODE)),accessdaemon)
+        $(info Info: Compiling for ARM architecture. Changing accessmode to perf_event.)
+        ACCESSMODE := perf_event
+        DEFINES += -DLIKWID_USE_PERFEVENT
+        BUILDDAEMON := false
+        BUILDFREQ := false
+    endif
+    ifeq ($(strip $(ACCESSMODE)),direct)
+        $(info Info: Compiling for ARM architecture. Changing accessmode to perf_event.)
+        ACCESSMODE := perf_event
+        DEFINES += -DLIKWID_USE_PERFEVENT
+        BUILDDAEMON := false
+        BUILDFREQ := false
+    endif
+    ifeq ($(strip $(ACCESSMODE)),perf_event)
+        DEFINES += -DLIKWID_USE_PERFEVENT
+        BUILDDAEMON := false
+        BUILDFREQ := false
+    endif
+endif
 ifeq ($(strip $(COMPILER)),ARMCLANG)
     ifeq ($(strip $(ACCESSMODE)),sysdaemon)
         $(info Info: Compiling for ARMv8 architecture. Changing accessmode to perf_event.)
@@ -302,6 +330,10 @@ DEFINES += -DLIKWID_WITH_ROCMON -D__HIP_PLATFORM_HCC__
 BUILDAPPDAEMON = true
 endif
 
+ifeq ($(CONTAINER_HELPER),true)
+	C_APPS += likwid-bridge
+	CONTAINER_HELPER_TARGET = likwid-bridge
+endif
 ifeq ($(strip $(BUILDDAEMON)),true)
 ifneq ($(strip $(COMPILER)),MIC)
     DAEMON_TARGET = likwid-accessD

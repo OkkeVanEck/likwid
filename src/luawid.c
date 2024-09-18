@@ -882,7 +882,11 @@ lua_likwid_getEventsAndCounters(lua_State* L)
         affinity_init();
         affinity_isInitialized = 1;
     }
-    perfmon_init_maps();
+    int err = perfmon_init_maps();
+    if (err != 0)
+    {
+        return 0;
+    }
     perfmon_check_counter_map(0);
     char** archTypeNames = getArchRegisterTypeNames();
     lua_newtable(L);
@@ -1733,14 +1737,14 @@ static int lua_likwid_readTemp(lua_State *L) {
 static volatile int recv_sigint = 0;
 
 static void signal_catcher(int signo) {
-  if (signo == SIGINT) {
-    recv_sigint++;
-  }
+  recv_sigint++;
   return;
 }
 
 static int lua_likwid_catch_signal(lua_State *L) {
   signal(SIGINT, signal_catcher);
+  signal(SIGTERM, signal_catcher);
+  signal(SIGABRT, signal_catcher);
   return 0;
 }
 
@@ -3694,14 +3698,12 @@ static int lua_likwid_finalize_rocm(lua_State *L) {
   return 0;
 }
 
-#else
+#endif /* LIKWID_WITH_ROCMON */
 
 static int lua_likwid_rocmSupported(lua_State *L) {
   lua_pushboolean(L, likwid_getRocmSupport());
   return 1;
 }
-
-#endif /* LIKWID_WITH_ROCMON */
 
 
 #ifdef LIKWID_WITH_SYSFEATURES

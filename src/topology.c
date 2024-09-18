@@ -124,9 +124,11 @@ static char* arm_cortex_a57 = "ARM Cortex A57";
 static char* arm_cortex_a53 = "ARM Cortex A53";
 static char* arm_cortex_a72 = "ARM Cortex A72";
 static char* arm_cortex_a73 = "ARM Cortex A73";
+static char* arm_cortex_a76 = "ARM Cortex A76";
 static char* arm_neoverse_n1 = "ARM Neoverse N1";
 static char* arm_neoverse_v1 = "ARM Neoverse V1";
 static char* arm_huawei_tsv110 = "Huawei TSV110 (ARMv8)";
+static char* arm_nvidia_grace = "Nvidia Grace";
 static char* fujitsu_a64fx = "Fujitsu A64FX";
 static char* apple_m1_studio = "Apple M1";
 static char* power7_str = "POWER7 architecture";
@@ -187,6 +189,7 @@ static char* short_arm8_neo_n1 = "arm8_n1";
 static char* short_arm8_neo_v1 = "arm8_v1";
 static char* short_a64fx = "arm64fx";
 static char* short_apple_m1 = "apple_m1";
+static char* short_nvidia_grace = "nvidia_grace";
 
 static char* short_power7 = "power7";
 static char* short_power8 = "power8";
@@ -249,7 +252,7 @@ initTopologyFile(FILE* file)
 static int
 readTopologyFile(const char* filename, cpu_set_t cpuSet)
 {
-    FILE* fp;
+    FILE* fp = NULL;
     char structure[256];
     char field[256];
     char value[256];
@@ -257,12 +260,18 @@ readTopologyFile(const char* filename, cpu_set_t cpuSet)
     int numHWThreads = -1;
     int numCacheLevels = -1;
     int numberOfNodes = -1;
-    int* tmpNumberOfProcessors;
-    int counter;
-    int i;
-    uint32_t tmp, tmp1;
+    int* tmpNumberOfProcessors = NULL;
+    int counter = 0;
+    int i = 0;
+    uint32_t tmp = 0, tmp1 = 0;
+    uint64_t tmp64 = 0;
 
     fp = fopen(filename, "r");
+    if (!fp)
+    {
+        ERROR_PRINT(Failed to open topology file %s, filename);
+        return -errno;
+    }
 
     while (fgets(line, 512, fp) != NULL) {
         sscanf(line,"%s %s", structure, field);
@@ -287,10 +296,16 @@ readTopologyFile(const char* filename, cpu_set_t cpuSet)
     {
         ERROR_PRINT(Cannot read topology information from file %s, filename);
         fclose(fp);
-        return -1;
+        return -EINVAL;
     }
 
     tmpNumberOfProcessors = (int*) malloc(numberOfNodes *sizeof(int));
+    if (!tmpNumberOfProcessors)
+    {
+        fclose(fp);
+        return -ENOMEM;
+    }
+
     fseek(fp, 0, SEEK_SET);
     counter = 0;
     while (fgets(line, 512, fp) != NULL) {
@@ -307,17 +322,80 @@ readTopologyFile(const char* filename, cpu_set_t cpuSet)
     }
 
     cpuid_topology.threadPool = (HWThread*)malloc(numHWThreads * sizeof(HWThread));
+    if (!cpuid_topology.threadPool)
+    {
+        free(tmpNumberOfProcessors);
+        fclose(fp);
+        memset(&cpuid_topology, 0, sizeof(CpuTopology));
+        memset(&cpuid_info, 0, sizeof(CpuInfo));
+        return -ENOMEM;
+    }
     cpuid_topology.cacheLevels = (CacheLevel*)malloc(numCacheLevels * sizeof(CacheLevel));
+    if (!cpuid_topology.cacheLevels)
+    {
+        free(tmpNumberOfProcessors);
+        free(cpuid_topology.threadPool);
+        cpuid_topology.threadPool = NULL;
+        fclose(fp);
+        memset(&cpuid_topology, 0, sizeof(CpuTopology));
+        memset(&cpuid_info, 0, sizeof(CpuInfo));
+        return -ENOMEM;
+    }
     cpuid_topology.numHWThreads = numHWThreads;
     cpuid_topology.numCacheLevels = numCacheLevels;
 
     numa_info.nodes = (NumaNode*) malloc(numberOfNodes * sizeof(NumaNode));
+    if (!numa_info.nodes)
+    {
+        free(tmpNumberOfProcessors);
+        free(cpuid_topology.cacheLevels);
+        free(cpuid_topology.threadPool);
+        fclose(fp);
+        memset(&cpuid_topology, 0, sizeof(CpuTopology));
+        //memset(&cpuid_info, 0, sizeof(CpuInfo));
+        return -ENOMEM;
+    }
     numa_info.numberOfNodes = numberOfNodes;
 
     for(i=0;i<numberOfNodes;i++)
     {
         numa_info.nodes[i].processors = (uint32_t*) malloc (tmpNumberOfProcessors[i] * sizeof(int));
+        if (!numa_info.nodes[i].processors)
+        {
+            for (int j = 0; j < i; j++)
+            {
+                if (numa_info.nodes[j].processors) free(numa_info.nodes[j].processors);
+                if (numa_info.nodes[j].distances) free(numa_info.nodes[j].distances);
+            }
+            free(tmpNumberOfProcessors);
+            free(cpuid_topology.cacheLevels);
+            free(cpuid_topology.threadPool);
+            free(numa_info.nodes);
+            fclose(fp);
+            memset(&cpuid_topology, 0, sizeof(CpuTopology));
+            memset(&numa_info, 0, sizeof(NumaTopology));
+            //memset(&cpuid_info, 0, sizeof(CpuInfo));
+            return -ENOMEM;
+        }
         numa_info.nodes[i].distances = (uint32_t*) malloc (numberOfNodes * sizeof(int));
+        if (!numa_info.nodes[i].distances)
+        {
+            free(numa_info.nodes[i].processors);
+            for (int j = 0; j < i; j++)
+            {
+                if (numa_info.nodes[j].processors) free(numa_info.nodes[j].processors);
+                if (numa_info.nodes[j].distances) free(numa_info.nodes[j].distances);
+            }
+            free(tmpNumberOfProcessors);
+            free(cpuid_topology.cacheLevels);
+            free(cpuid_topology.threadPool);
+            free(numa_info.nodes);
+            fclose(fp);
+            memset(&cpuid_topology, 0, sizeof(CpuTopology));
+            memset(&numa_info, 0, sizeof(NumaTopology));
+            //memset(&cpuid_info, 0, sizeof(CpuInfo));
+            return -ENOMEM;
+        }
     }
     free(tmpNumberOfProcessors);
 
@@ -349,7 +427,7 @@ readTopologyFile(const char* filename, cpu_set_t cpuSet)
             }
             else if (strncmp(field, "threadPool", 11) == 0)
             {
-                int thread;
+                int thread = 0;
 
                 sscanf(line, "%s %s %d %s = %d", structure, field, &thread, value, &tmp);
 
@@ -385,7 +463,7 @@ readTopologyFile(const char* filename, cpu_set_t cpuSet)
             }
             else if (strncmp(field, "cacheLevels", 12) == 0)
             {
-                int level;
+                int level = 0;
                 char type[128];
                 sscanf(line, "%s %s %d %s", structure, field, &level, value);
 
@@ -467,6 +545,22 @@ readTopologyFile(const char* filename, cpu_set_t cpuSet)
                 strncpy(value,&(line[strlen(structure)+strlen(field)+4]), 256);
                 int len = 257;
                 cpuid_info.osname = (char*) malloc(len * sizeof(char));
+                if (!cpuid_info.osname)
+                {
+                    for (int i = 0; i < numberOfNodes; i++)
+                    {
+                        NumaNode* n = &numa_info.nodes[i];
+                        if (n->distances) free(n->distances);
+                        if (n->processors) free(n->processors);
+                    }
+                    free(cpuid_topology.cacheLevels);
+                    free(cpuid_topology.threadPool);
+                    free(numa_info.nodes);
+                    fclose(fp);
+                    memset(&cpuid_info, 0, sizeof(CpuInfo));
+                    memset(&cpuid_topology, 0, sizeof(CpuTopology));
+                    memset(&numa_info, 0, sizeof(NumaTopology));
+                }
                 strncpy(cpuid_info.osname, value, len);
                 cpuid_info.osname[strlen(value)-1] = '\0';
             }
@@ -502,9 +596,8 @@ readTopologyFile(const char* filename, cpu_set_t cpuSet)
             }
             else if (strncmp(field, "featureFlags", 13) == 0)
             {
-                sscanf(line, "%s %s = %d", structure, field, &tmp);
-                cpuid_info.featureFlags = tmp;
-
+                sscanf(line, "%s %s = %ld", structure, field, &tmp64);
+                cpuid_info.featureFlags = tmp64;
             }
             else if (strncmp(field, "perf_version", 13) == 0)
             {
@@ -545,12 +638,16 @@ readTopologyFile(const char* filename, cpu_set_t cpuSet)
                 strncpy(cpuid_info.features, value, len);
                 cpuid_info.features[strlen(value)-1] = '\0';
             }
+            else if (strncmp(field, "architecture", 12) == 0)
+            {
+                strcpy(cpuid_info.architecture,&(line[strlen(structure)+strlen(field)+4]));
+            }
         }
         else if (strncmp(structure, "numa_info", 9) == 0)
         {
             if (strncmp(field, "nodes", 5) == 0)
             {
-                int id;
+                int id = 0;
                 sscanf(line, "%s %s %d %s", structure, field, &id, value);
 
                 if (strncmp(value,"numberOfProcessors", 19) == 0)
@@ -721,6 +818,7 @@ int likwid_sysfs_list_len(char* sysfsfile)
 int
 topology_setName(void)
 {
+    int err = 0;
     switch ( cpuid_info.family )
     {
         case P6_FAMILY:
@@ -981,8 +1079,7 @@ topology_setName(void)
                     break;
 
                 default:
-                    cpuid_info.name = unknown_intel_str;
-                    cpuid_info.short_name = short_unknown;
+                    err = -EFAULT;
                     break;
             }
             break;
@@ -994,7 +1091,9 @@ topology_setName(void)
                     cpuid_info.name = xeon_phi_string;
                     cpuid_info.short_name = short_phi;
                     break;
-
+                default:
+                    err = -EFAULT;
+                    break;
             }
             break;
 
@@ -1003,6 +1102,8 @@ topology_setName(void)
             if (cpuid_info.isIntel)
             {
                 ERROR_PLAIN_PRINT(Netburst architecture is not supported);
+                err = -EFAULT;
+                break;
             }
 
             switch ( cpuid_info.model )
@@ -1106,6 +1207,7 @@ topology_setName(void)
                 default:
                     cpuid_info.name = unknown_power_str;
                     cpuid_info.short_name = short_unknown;
+                    err = -EFAULT;
                     break;
            }
            break;
@@ -1117,17 +1219,23 @@ topology_setName(void)
                 case ZEN_RYZEN:
                     cpuid_info.name = amd_zen_str;
                     cpuid_info.short_name = short_zen;
+                    cpuid_info.supportUncore = 1;
                     break;
                 case ZENPLUS_RYZEN:
                 case ZENPLUS_RYZEN2:
                     cpuid_info.name = amd_zenplus_str;
                     cpuid_info.short_name = short_zen;
+                    cpuid_info.supportUncore = 1;
                     break;
                 case ZEN2_RYZEN:
                 case ZEN2_RYZEN2:
                 case ZEN2_RYZEN3:
                     cpuid_info.name = amd_zen2_str;
                     cpuid_info.short_name = short_zen2;
+                    cpuid_info.supportUncore = 1;
+                    break;
+                default:
+                    err = -EFAULT;
                     break;
             }
             break;
@@ -1140,13 +1248,19 @@ topology_setName(void)
                 case ZEN3_EPYC_TRENTO:
                     cpuid_info.name = amd_zen3_str;
                     cpuid_info.short_name = short_zen3;
+                    cpuid_info.supportUncore = 1;
                     break;
                 case ZEN4_RYZEN:
+                case ZEN4_RYZEN2:
                 case ZEN4_EPYC:
+                case ZEN4_RYZEN_PRO:
                     cpuid_info.name = amd_zen4_str;
                     cpuid_info.short_name = short_zen4;
+                    cpuid_info.supportUncore = 1;
                     break;
-
+                default:
+                    err = -EFAULT;
+                    break;
             }
             break;
 
@@ -1175,7 +1289,7 @@ topology_setName(void)
                     cpuid_info.short_name = short_arm7;
                     break;
                 default:
-                    return EXIT_FAILURE;
+                    err = -EFAULT;
                     break;
             }
             break;
@@ -1201,6 +1315,10 @@ topology_setName(void)
                             cpuid_info.name = arm_cortex_a73;
                             cpuid_info.short_name = short_arm8;
                             break;
+                        case ARM_CORTEX_A76:
+                            cpuid_info.name = arm_cortex_a76;
+                            cpuid_info.short_name = short_arm8;
+                            break;
                         case ARM_NEOVERSE_N1:
                             cpuid_info.name = arm_neoverse_n1;
                             cpuid_info.short_name = short_arm8_neo_n1;
@@ -1209,8 +1327,13 @@ topology_setName(void)
                             cpuid_info.name = arm_neoverse_v1;
                             cpuid_info.short_name = short_arm8_neo_v1;
                             break;
+                        case NVIDIA_GRACE:
+                            cpuid_info.name = arm_nvidia_grace;
+                            cpuid_info.short_name = short_nvidia_grace;
+                            cpuid_info.supportUncore = 1;
+                            break;
                         default:
-                            return EXIT_FAILURE;
+                            err = -EFAULT;
                             break;
                     }
                     break;
@@ -1231,7 +1354,7 @@ topology_setName(void)
                             cpuid_info.short_name = short_arm8_cav_tx;
                             break;
                         default:
-                            return EXIT_FAILURE;
+                            err = -EFAULT;
                             break;
                     }
                     break;
@@ -1243,7 +1366,7 @@ topology_setName(void)
                             cpuid_info.short_name = short_a64fx;
                             break;
                         default:
-                            return EXIT_FAILURE;
+                            err = -EFAULT;
                             break;
                     }
                     break;
@@ -1256,7 +1379,7 @@ topology_setName(void)
                             cpuid_info.short_name = short_apple_m1;
                             break;
                         default:
-                            return EXIT_FAILURE;
+                            err = -EFAULT;
                             break;
                     }
                     break;
@@ -1268,19 +1391,20 @@ topology_setName(void)
                             cpuid_info.short_name = short_arm8;
                             break;
                         default:
-                            return EXIT_FAILURE;
+                            err = -EFAULT;
                             break;
 
                     }
                     break;
                 default:
-                    return EXIT_FAILURE;
+                    err = -EFAULT;
                     break;
             }
         default:
+            err = -EFAULT;
             break;
     }
-    return EXIT_SUCCESS;
+    return err;
 }
 
 const struct
@@ -1323,7 +1447,7 @@ void topology_setupTree(void)
         if (!tree_nodeExists(cpuid_topology.topologyTree,
                     hwThreadPool[i].packageId))
         {
-            //printf("Insert Socket %d\n", hwThreadPool[i].packageId);
+            DEBUG_PRINT(DEBUGLEV_DEVELOP, Adding socket %d, hwThreadPool[i].packageId);
             tree_insertNode(cpuid_topology.topologyTree,
                     hwThreadPool[i].packageId);
         }
@@ -1337,7 +1461,7 @@ void topology_setupTree(void)
         currentNode = tree_getNode(currentNode, hwThreadPool[i].dieId);*/
         if (!tree_nodeExists(currentNode, hwThreadPool[i].coreId))
         {
-            //printf("Insert Core %d at Socket %d\n", hwThreadPool[i].coreId, hwThreadPool[i].packageId);
+            DEBUG_PRINT(DEBUGLEV_DEVELOP, Adding core %d to socket %d, hwThreadPool[i].coreId, hwThreadPool[i].packageId);
             tree_insertNode(currentNode, hwThreadPool[i].coreId);
         }
         currentNode = tree_getNode(currentNode, hwThreadPool[i].coreId);
@@ -1346,20 +1470,23 @@ void topology_setupTree(void)
             /*
                printf("WARNING: Thread already exists!\n");
                */
-            //printf("Insert HWThread %d at Core %d Socket %d\n", hwThreadPool[i].apicId, hwThreadPool[i].coreId, hwThreadPool[i].packageId);
+            DEBUG_PRINT(DEBUGLEV_DEVELOP, Adding hwthread %d at core %d on socket %d, hwThreadPool[i].apicId, hwThreadPool[i].coreId, hwThreadPool[i].packageId);
             tree_insertNode(currentNode, hwThreadPool[i].apicId);
         }
 
     }
     i = tree_countChildren(cpuid_topology.topologyTree);
+    DEBUG_PRINT(DEBUGLEV_DEVELOP, Determine number of sockets. tree tells %d, i);
     if (cpuid_topology.numSockets == 0)
         cpuid_topology.numSockets = i;
     currentNode = tree_getChildNode(cpuid_topology.topologyTree);
     i = tree_countChildren(currentNode);
+    DEBUG_PRINT(DEBUGLEV_DEVELOP, Determine number of cores per socket. tree tells %d, i);
     if (cpuid_topology.numCoresPerSocket == 0)
         cpuid_topology.numCoresPerSocket = i;
     currentNode = tree_getChildNode(currentNode);
     i = tree_countChildren(currentNode);
+    DEBUG_PRINT(DEBUGLEV_DEVELOP, Determine number of hwthreads per cores. tree tells %d, i);
     if (cpuid_topology.numThreadsPerCore == 0)
         cpuid_topology.numThreadsPerCore = i;
     return;
@@ -1403,10 +1530,7 @@ standard_init:
         if (cpu_count(&cpuSet) < sysconf(_SC_NPROCESSORS_CONF))
         {
 #if !defined(__ARM_ARCH_7A__) && !defined(__ARM_ARCH_8A)
-            cpuid_topology.activeHWThreads =
-                ((cpu_count(&cpuSet) < sysconf(_SC_NPROCESSORS_CONF)) ?
-                cpu_count(&cpuSet) :
-                sysconf(_SC_NPROCESSORS_CONF));
+            cpuid_topology.activeHWThreads = cpu_count(&cpuSet);
 #else
             cpuid_topology.activeHWThreads = sysconf(_SC_NPROCESSORS_ONLN);
 #endif
@@ -1415,10 +1539,41 @@ standard_init:
         {
             cpuid_topology.activeHWThreads = sysconf(_SC_NPROCESSORS_CONF);
         }
-        funcs.init_cpuInfo(cpuSet);
-        topology_setName();
-        funcs.init_cpuFeatures();
-        funcs.init_nodeTopology(cpuSet);
+        ret = funcs.init_cpuInfo(cpuSet);
+        if (ret < 0)
+        {
+            errno = ret;
+            ERROR_PRINT(Failed to read cpuinfo);
+            cpuid_topology.activeHWThreads = 0;
+            return ret;
+        }
+        ret = topology_setName();
+        if (ret < 0)
+        {
+            DEBUG_PRINT(DEBUGLEV_INFO, Cannot use machine-given CPU name);
+        }
+        ret = funcs.init_cpuFeatures();
+        if (ret < 0)
+        {
+            errno = ret;
+            ERROR_PRINT(Failed to detect CPU features);
+            free(cpuid_info.osname);
+            memset(&cpuid_info, 0, sizeof(CpuInfo));
+            memset(&cpuid_topology, 0, sizeof(CpuTopology));
+            return ret;
+        }
+        ret = funcs.init_nodeTopology(cpuSet);
+        if (ret < 0)
+        {
+            errno = ret;
+            ERROR_PRINT(Failed to setup system topology);
+            free(cpuid_info.osname);
+            free(cpuid_info.features);
+            free(cpuid_topology.threadPool);
+            memset(&cpuid_info, 0, sizeof(CpuInfo));
+            memset(&cpuid_topology, 0, sizeof(CpuTopology));
+            return ret;
+        }
         int activeCount = 0;
         for (int i = 0; i < cpuid_topology.numHWThreads; i++)
         {
@@ -1427,7 +1582,17 @@ standard_init:
         }
         if (activeCount > cpuid_topology.activeHWThreads)
             cpuid_topology.activeHWThreads = activeCount;
-        funcs.init_cacheTopology();
+        ret = funcs.init_cacheTopology();
+        if (ret < 0)
+        {
+            errno = ret;
+            ERROR_PRINT(Failed to setup cache topology);
+            free(cpuid_info.osname);
+            free(cpuid_topology.threadPool);
+            memset(&cpuid_info, 0, sizeof(CpuInfo));
+            memset(&cpuid_topology, 0, sizeof(CpuTopology));
+            return ret;
+        }
         if (cpuid_topology.numCacheLevels == 0)
         {
             CacheLevel* cachePool = NULL;
@@ -1526,6 +1691,7 @@ standard_init:
                     break;
             }
         }
+        DEBUG_PRINT(DEBUGLEV_DEVELOP, Setting up tree);
         topology_setupTree();
         sched_setaffinity(0, sizeof(cpu_set_t), &cpuSet);
     }
@@ -1690,6 +1856,7 @@ print_supportedCPUs (void)
     printf("Supported ARMv8 processors:\n");
     printf("\t%s\n",arm_cortex_a53);
     printf("\t%s\n",arm_cortex_a57);
+    printf("\t%s\n",arm_cortex_a76);
     printf("\t%s\n",cavium_thunderx_str);
     printf("\t%s\n",cavium_thunderx2t99_str);
     printf("\t%s\n",fujitsu_a64fx);
@@ -1697,6 +1864,7 @@ print_supportedCPUs (void)
     printf("\t%s\n",arm_neoverse_v1);
     printf("\t%s\n",arm_huawei_tsv110);
     printf("\t%s\n",apple_m1_studio);
+    printf("\t%s\n",arm_nvidia_grace);
     printf("\n");
     printf("Supported ARMv7 processors:\n");
     printf("\t%s\n",armv7l_str);

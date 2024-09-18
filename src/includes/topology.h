@@ -48,10 +48,10 @@
 #define MAX_MODEL_STRING_LENGTH 512
 
 struct topology_functions {
-    void (*init_cpuInfo) (cpu_set_t cpuSet);
-    void (*init_cpuFeatures) (void);
-    void (*init_nodeTopology) (cpu_set_t cpuSet);
-    void (*init_cacheTopology) (void);
+    int (*init_cpuInfo) (cpu_set_t cpuSet);
+    int (*init_cpuFeatures) (void);
+    int (*init_nodeTopology) (cpu_set_t cpuSet);
+    int (*init_cacheTopology) (void);
     void (*init_fileTopology) (FILE*);
     void (*close_topology) (void);
 };
@@ -154,6 +154,8 @@ struct topology_functions {
 #define ZEN3_RYZEN3     0x50
 #define ZEN3_EPYC_TRENTO 0x30
 #define ZEN4_RYZEN      0x61
+#define ZEN4_RYZEN_PRO  0x08
+#define ZEN4_RYZEN2     0x74
 #define ZEN4_EPYC       0x11
 
 /* ARM */
@@ -164,6 +166,7 @@ struct topology_functions {
 #define  ARM_CORTEX_A57     0xD07U
 #define  ARM_CORTEX_A72     0xD08U
 #define  ARM_CORTEX_A73     0xD09U
+#define  ARM_CORTEX_A76     0xD0BU
 #define  CAV_THUNDERX	0x0A0U
 #define  CAV_THUNDERX88	0x0A1U
 #define  CAV_THUNDERX81	0x0A2U
@@ -178,6 +181,7 @@ struct topology_functions {
 #define  APPLE_M1_STUDIO 0x02U
 #define  HUAWEI_TSV110 0xD01U
 #define  AWS_GRAVITON3 0xD40U
+#define  NVIDIA_GRACE 0xD4FU
 
 /* ARM vendors */
 #define DEFAULT_ARM	0x41U
